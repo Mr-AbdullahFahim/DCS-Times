@@ -1,0 +1,297 @@
+/* Container Backgrounds */
+.custom-header-bg {
+  background-color: #ffffff;
+}
+
+/* We wrap the header content in a div that respects the safe area 
+   (so it doesn't go under the status bar on mobile)
+*/
+.fixed-header-content {
+  background-color: #ffffff;
+  padding-top: env(safe-area-inset-top);
+  display: flex;
+  flex-direction: column;
+}
+
+.header-container {
+  padding: 10px 24px 15px 24px;
+}
+
+.header-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #1a2138;
+  letter-spacing: -0.5px;
+}
+
+.header-subtitle {
+  font-size: 14px;
+  color: #8f9bb3;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* Level Filter */
+.level-filter-container {
+  background-color: #ffffff;
+  padding-bottom: 15px;
+  width: 100%;
+}
+
+.level-scroll-content {
+  padding-left: 24px;
+  padding-right: 24px;
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.level-scroll-content::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.level-chip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background-color: #f0f2f5;
+  margin-right: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.level-chip.selected {
+  background-color: #1a2138;
+}
+
+.level-chip-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #8f9bb3;
+}
+
+.level-chip-text.selected {
+  color: #ffffff;
+}
+
+/* Calendar Strip */
+.calendar-strip {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap:5px;
+  padding: 0 24px 25px 24px;
+  background-color: #ffffff;
+  z-index: 1;
+}
+
+.day-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  width: 55px;
+  border-radius: 18px;
+  border: 1px solid #f0f2f5;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.day-item.selected {
+  background-color: #4a90e2;
+  border-color: #4a90e2;
+  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+}
+
+.day-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #8f9bb3;
+}
+
+.day-text.selected {
+  color: #fff;
+  font-weight: 700;
+}
+
+.active-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #fff;
+  margin-top: 4px;
+}
+
+/* Content Wrapper */
+.content-wrapper {
+  background-color: #f8f9fb;
+  /* border-top-left-radius: 30px; */
+  /* border-top-right-radius: 30px; */
+  /* Visual Trick: Pull content up slightly to create tight border look 
+     Note: In Ionic fixed header, this margin logic works differently, 
+     but setting min-height ensures it fills screen */
+  min-height: 100%;
+  padding-top: 20px;
+  overflow: hidden;
+}
+
+/* Loading */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 50px;
+}
+
+.loading-text {
+  margin-top: 12px;
+  color: #8f9bb3;
+  font-size: 15px;
+}
+
+/* Timeline */
+.scroll-content {
+  padding: 0 24px;
+}
+
+.timeline-row {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 2px;
+}
+
+.time-column {
+  width: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 15px;
+  padding-top: 16px;
+}
+
+.start-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a2138;
+}
+
+.end-time {
+  font-size: 11px;
+  color: #8f9bb3;
+  margin-top: 2px;
+}
+
+.timeline-connector {
+  flex: 1;
+  width: 2px;
+  background-color: #e4e9f2;
+  margin-top: 8px;
+  margin-right: 6px;
+  border-radius: 1px;
+}
+
+.card-container {
+  flex: 1;
+  padding-bottom: 20px;
+}
+
+/* Cards */
+.card {
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  min-height: 100px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.card-accent {
+  width: 6px;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.card-content {
+  flex: 1;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.subject-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a2138;
+  margin-bottom: 8px;
+}
+
+.meta-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.meta-icon {
+  font-size: 14px;
+  color: #555;
+  margin-right: 4px;
+}
+
+.detail-text {
+  font-size: 13px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.sub-detail-text {
+  font-size: 13px;
+  color: #4a5568;
+  font-style: italic;
+}
+
+/* Break / Free */
+.break-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px;
+  background-color: rgba(230, 230, 230, 0.4);
+  border-radius: 12px;
+  border: 1px dashed #c5cee0;
+  margin-top: 10px;
+}
+
+.break-icon {
+  font-size: 20px;
+  color: #8f9bb3;
+}
+
+.break-text {
+  margin-left: 10px;
+  color: #8f9bb3;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.free-card {
+  padding: 12px;
+  background-color: transparent;
+  /* display: flex; */
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.free-text {
+  color: #c5cee0;
+  font-weight: 600;
+  font-size: 13px;
+  font-style: italic;
+}
