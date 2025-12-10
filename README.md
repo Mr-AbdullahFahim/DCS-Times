@@ -2,8 +2,8 @@
 
 A native mobile application built for students of the **Department of Computer Science, University of Jaffna**. It provides a real-time, mobile-friendly interface to view daily lecture schedules and venue bookings directly from the official Google Sheets.
 
-![License](https://img.shields.io/github/license/Mr-AbdullahFahim/your-repo-name)
-![Version](https://img.shields.io/github/v/release/Mr-AbdullahFahim/your-repo-name)
+![License](https://img.shields.io/github/license/Mr-AbdullahFahim/DCS-Times)
+![Version](https://img.shields.io/github/v/release/Mr-AbdullahFahim/DCS-Times)
 
 ## 🚀 Features
 
@@ -28,7 +28,7 @@ Download the latest `.apk` from the [Releases Page](https://github.com/Mr-Abdull
 ### For Developers
 1.  **Clone the repository**
     ```bash
-    git clone [https://github.com/Mr-AbdullahFahim/your-repo-name.git](https://github.com/Mr-AbdullahFahim/your-repo-name.git)
+    git clone [https://github.com/Mr-AbdullahFahim/your-repo-name.git](https://github.com/Mr-AbdullahFahim/DCS-Times.git)
     cd your-repo-name
     ```
 
