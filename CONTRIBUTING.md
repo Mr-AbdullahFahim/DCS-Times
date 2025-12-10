@@ -9,7 +9,7 @@ We welcome contributions from everyone, especially students from the University 
 1.  **Fork the Repository**: Click the "Fork" button at the top right of this page.
 2.  **Clone your Fork**:
     ```bash
-    git clone [https://github.com/YOUR_USERNAME/your-repo-name.git](https://github.com/YOUR_USERNAME/your-repo-name.git)
+    git clone [https://github.com/Mr-AbdullahFahim/DCS-Times.git](https://github.com/Mr-AbdullahFahim/DCS-Times.git)
     ```
 3.  **Create a Branch**:
     ```bash
