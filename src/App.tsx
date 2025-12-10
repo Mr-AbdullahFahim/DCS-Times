@@ -9,14 +9,15 @@ import {
   IonTabButton,
   IonTabs,
   IonSpinner,
-  IonAlert, // Added IonAlert
+  IonAlert,
   setupIonicReact
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { calendar, book, informationCircle } from 'ionicons/icons';
 import Papa, { ParseResult } from "papaparse";
-import { App as CapApp } from '@capacitor/app'; // Alias to avoid conflict with App component
-import { Browser } from '@capacitor/browser'; // Recommended for opening URLs
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 
 import Tab1 from './pages/Tab1';
 import Tab2 from './pages/Tab2';
@@ -43,25 +44,64 @@ setupIonicReact();
 const MASTER_SHEET_URL = "https://docs.google.com/spreadsheets/d/1tZ_6OE0Ht8_xAvl2Wof6tvsB0OMrzp_SU6jHo6GIgIA/export?format=csv";
 const TIMETABLE_GID = "1890970529";
 
-// --- GITHUB UPDATE CONFIGURATION ---
-// TODO: Replace with your actual GitHub username and repository name
+// --- GITHUB CONFIGURATION ---
 const GITHUB_OWNER = "Mr-AbdullahFahim"; 
 const GITHUB_REPO = "DCS-Times"; 
 
 const App: React.FC = () => {
-  // Data State
   const [timetableData, setTimetableData] = useState<string[][]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Update State
   const [showUpdateAlert, setShowUpdateAlert] = useState(false);
   const [updateInfo, setUpdateInfo] = useState({ version: '', url: '', body: '' });
 
-  // --- 1. TIMETABLE FETCHING LOGIC ---
+  // --- HELPER: COMPARE VERSIONS ---
+  const isNewer = (v1: string, v2: string) => {
+    const p1 = v1.split('.').map(Number);
+    const p2 = v2.split('.').map(Number);
+    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+      const num1 = p1[i] || 0;
+      const num2 = p2[i] || 0;
+      if (num2 > num1) return true;
+      if (num2 < num1) return false;
+    }
+    return false;
+  };
+
+  // --- HELPER: CHECK UPDATE FROM SHEET DATA ---
+  const performUpdateCheck = async (remoteTag: string) => {
+    // Skip checking on web to prevent errors
+    // if (!Capacitor.isNativePlatform()) return; 
+
+    try {
+      // In a real native build, use CapApp.getInfo(). For dev, we simulate or skip.
+      let currentVersion = "1.0.0"; 
+      if (Capacitor.isNativePlatform()) {
+        const appInfo = await CapApp.getInfo();
+        currentVersion = appInfo.version;
+      }
+      
+      const cleanCurrent = currentVersion.replace(/^v/, '');
+      const cleanRemote = remoteTag.replace(/^v/, '');
+
+      console.log(`Checking Update: Local(${cleanCurrent}) vs Remote(${cleanRemote})`);
+
+      if (isNewer(cleanCurrent, cleanRemote)) {
+        setUpdateInfo({
+          version: remoteTag,
+          url: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tag/${remoteTag}`,
+          body: 'A new version is available with performance improvements and bug fixes.'
+        });
+        setShowUpdateAlert(true);
+      }
+    } catch (error) {
+      console.error("Update check logic failed:", error);
+    }
+  };
+
+  // --- MAIN FETCH LOGIC ---
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch Master Sheet to get ID
       const masterResponse = await fetch(MASTER_SHEET_URL);
       const masterCsvText = await masterResponse.text();
 
@@ -70,14 +110,18 @@ const App: React.FC = () => {
         skipEmptyLines: false,
         complete: async (masterResults: ParseResult<string[]>) => {
           const sheetId = masterResults.data?.[0]?.[0]?.trim();
+          const latestVersion = masterResults.data?.[1]?.[0]?.trim();
+
+          if (latestVersion) {
+            performUpdateCheck(latestVersion);
+          }
 
           if (!sheetId) {
-            console.error("Sheet ID not found in Master Sheet");
+            console.error("Sheet ID not found in Master Sheet A1");
             setIsLoading(false);
             return;
           }
 
-          // Fetch Actual Timetable
           const dynamicUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${TIMETABLE_GID}`;
           
           try {
@@ -112,83 +156,66 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- 2. UPDATE CHECKER LOGIC ---
-  const checkForUpdate = async () => {
-    try {
-      // A. Get Current App Version
-      const appInfo = await CapApp.getInfo();
-      const currentVersion = appInfo.version; // e.g., "1.0.0"
-
-      // B. Get Latest Release from GitHub
-      const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`);
-      if (!response.ok) return; // Silent fail on network error or rate limit
-      
-      const data = await response.json();
-      const latestVersionTag = data.tag_name; // e.g., "v1.0.1" or "1.0.1"
-      
-      // Clean versions string for comparison (remove 'v' prefix)
-      const cleanCurrent = currentVersion.replace(/^v/, '');
-      const cleanLatest = latestVersionTag.replace(/^v/, '');
-
-      // C. Compare Versions (Simple semantic check)
-      if (isNewer(cleanCurrent, cleanLatest)) {
-        setUpdateInfo({
-          version: latestVersionTag,
-          url: data.html_url, // Link to the release page
-          body: data.body || 'Performance improvements and bug fixes.'
-        });
-        setShowUpdateAlert(true);
-      }
-    } catch (error) {
-      console.error("Update check failed:", error);
-    }
-  };
-
-  // Helper to compare version strings (returns true if v2 > v1)
-  const isNewer = (v1: string, v2: string) => {
-    const p1 = v1.split('.').map(Number);
-    const p2 = v2.split('.').map(Number);
-    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
-      const num1 = p1[i] || 0;
-      const num2 = p2[i] || 0;
-      if (num2 > num1) return true;
-      if (num2 < num1) return false;
-    }
-    return false;
-  };
-
-  // --- EFFECTS ---
-  
-  // 1. Load Data on Mount
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
 
-  // 2. Check for Updates on Mount
-  useEffect(() => {
-    checkForUpdate();
-  }, []);
-
   return (
     <IonApp>
-      {/* UPDATE NOTIFICATION ALERT */}
+      {/* 1. Inject Styles for the Alert to match App Theme */}
+      <style>{`
+        .custom-update-alert .alert-wrapper {
+          border-radius: 16px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        .custom-update-alert .alert-head {
+          padding-bottom: 8px;
+        }
+        .custom-update-alert .alert-title {
+          color: #1a2138;
+          font-weight: 700;
+          font-size: 18px;
+        }
+        .custom-update-alert .alert-sub-title {
+          color: #4A90E2;
+          font-weight: 600;
+          font-size: 14px;
+        }
+        .custom-update-alert .alert-message {
+          color: #666;
+          font-size: 14px;
+        }
+        /* Cancel Button - Gray */
+        .custom-update-alert .alert-button-cancel {
+          color: #8f9bb3 !important;
+          font-weight: 600;
+        }
+        /* Confirm Button - App Blue */
+        .custom-update-alert .alert-button-confirm {
+          color: #4A90E2 !important;
+          font-weight: 700;
+        }
+      `}</style>
+
+      {/* 2. The Themed Alert */}
       <IonAlert
         isOpen={showUpdateAlert}
         onDidDismiss={() => setShowUpdateAlert(false)}
-        header="New Update Available!"
-        subHeader={`Version ${updateInfo.version} is now available.`}
-        message={updateInfo.body}
+        cssClass="custom-update-alert"
+        header="Update Available 🚀"
+        subHeader={`Version ${updateInfo.version} is ready!`}
         buttons={[
           {
-            text: 'Later',
+            text: 'Not Now',
             role: 'cancel',
+            cssClass: 'alert-button-cancel',
             handler: () => setShowUpdateAlert(false)
           },
           {
-            text: 'Upgrade',
+            text: 'Update App',
             role: 'confirm',
+            cssClass: 'alert-button-confirm',
             handler: () => {
-              // Redirect to GitHub Release Page
               Browser.open({ url: updateInfo.url });
             }
           }
@@ -250,7 +277,7 @@ const App: React.FC = () => {
               <IonTabButton tab="tab2" href="/tab2">
                 <IonIcon aria-hidden="true" icon={book} />
                 <IonLabel style={{ fontWeight: '600', fontSize: '11px', marginTop: '2px' }}>
-                  Bookings
+                  Booking
                 </IonLabel>
               </IonTabButton>
 
