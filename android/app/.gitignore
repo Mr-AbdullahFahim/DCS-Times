@@ -1,2 +1,6 @@
 /build/*
 !/build/.npmkeep
+
+.env
+*.properties
+*.keystore
