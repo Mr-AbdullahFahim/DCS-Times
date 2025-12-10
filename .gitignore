@@ -29,3 +29,16 @@ yarn-error.log*
 
 # Optional eslint cache
 .eslintcache
+
+# --- Capacitor Android ---
+android/app/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+android/captures/
+android/app/src/main/assets/public
+android/app/src/main/assets/capacitor.config.json
+
+# Android signing keys
+*.keystore
+*.jks

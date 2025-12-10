@@ -14,6 +14,7 @@ import {
   alertCircleOutline,
   bugOutline,
   mailOutline,
+  gitBranchOutline, // Added for Open Source section
 } from "ionicons/icons";
 import "./Tab3.css";
 
@@ -21,6 +22,8 @@ import "./Tab3.css";
 const APP_VERSION = "1.0.0";
 const CONTACT_EMAIL = "fahimabdullah528@gmail.com";
 const GITHUB_URL = "https://github.com/Mr-AbdullahFahim";
+// Ideally, update this to the specific repository URL when created
+const REPO_URL = "https://github.com/Mr-AbdullahFahim"; 
 const LINKEDIN_URL = "https://www.linkedin.com/in/mr-abdullah/";
 
 const Tab3: React.FC = () => {
@@ -67,7 +70,32 @@ const Tab3: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. THE DEVELOPER */}
+            {/* 2. OPEN SOURCE CONTRIBUTION (NEW SECTION) */}
+            <div className="info-card">
+              <div
+                className="icon-container"
+                style={{ backgroundColor: "#E0F2F1" }} // Light Teal bg
+              >
+                <IonIcon icon={gitBranchOutline} style={{ color: "#009688", fontSize: "24px" }} />
+              </div>
+              <div className="card-title">We are Open Source!</div>
+              <div className="card-text">
+                This project is open-source and community-driven. Whether you want to fix a bug, add a new feature, or improve the UI, your contributions are welcome.
+                <br/><br/>
+                Join us in making this tool better for everyone at UoJ.
+              </div>
+
+              <div 
+                className="contact-button" 
+                onClick={() => openLink(REPO_URL)}
+                style={{ backgroundColor: "#009688", marginTop: "16px" }} // Teal button
+              >
+                <IonIcon icon={logoGithub} style={{ marginRight: "8px", fontSize: "18px", color: "white" }} />
+                <span className="button-text" style={{ color: "white" }}>Contribute Now</span>
+              </div>
+            </div>
+
+            {/* 3. THE DEVELOPER */}
             <div className="info-card">
               <div
                 className="icon-container"
@@ -112,7 +140,7 @@ const Tab3: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. DISCLAIMER */}
+            {/* 4. DISCLAIMER */}
             <div className="info-card">
               <div
                 className="icon-container"
@@ -139,7 +167,7 @@ const Tab3: React.FC = () => {
               </div>
             </div>
 
-            {/* 4. REPORT BUGS */}
+            {/* 5. REPORT BUGS */}
             <div className="info-card">
               <div
                 className="icon-container"
