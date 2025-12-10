@@ -23,7 +23,7 @@ const APP_VERSION = "1.0.0";
 const CONTACT_EMAIL = "fahimabdullah528@gmail.com";
 const GITHUB_URL = "https://github.com/Mr-AbdullahFahim";
 // Ideally, update this to the specific repository URL when created
-const REPO_URL = "https://github.com/Mr-AbdullahFahim"; 
+const REPO_URL = "https://github.com/Mr-AbdullahFahim/DCS-Times.git"; 
 const LINKEDIN_URL = "https://www.linkedin.com/in/mr-abdullah/";
 
 const Tab3: React.FC = () => {
