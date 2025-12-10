@@ -40,5 +40,6 @@ android/app/src/main/assets/public
 android/app/src/main/assets/capacitor.config.json
 
 # Android signing keys
+*.properties
 *.keystore
 *.jks
