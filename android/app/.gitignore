@@ -1,6 +1,6 @@
 /build/*
 !/build/.npmkeep
 
-*.keystore
 .env
-signing-config.properties
+*.properties
+*.keystore
