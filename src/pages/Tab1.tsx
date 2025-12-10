@@ -14,13 +14,8 @@ import {
   locationOutline, 
   fastFoodOutline 
 } from "ionicons/icons";
-import Papa, { ParseResult } from "papaparse";
 import "./Tab1.css";
 
-const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1yf0j1uscFgnFOSIZpwufYR2vAO6wwMLM/export?format=csv&gid=1890970529";
-
-// Mapping standard offsets. 0=Mon, 1=Tue, ... 5=Sat, 6=Sun
 const DAY_OFFSETS = [
   { label: "Mon", colIndex: 1, dayId: 0 },
   { label: "Tue", colIndex: 4, dayId: 1 },
@@ -57,105 +52,88 @@ interface DayItem {
   dayId: number;
 }
 
-const Tab1: React.FC = () => {
+// Props definition
+interface Tab1Props {
+  data: string[][];
+  isLoading: boolean;
+  onRefresh: () => Promise<void>;
+}
+
+const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
   const [columns, setColumns] = useState<string[][]>([]);
   const [lecturerMap, setLecturerMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
   const [selectedLevelOffset, setSelectedLevelOffset] = useState(1);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [availableDays, setAvailableDays] = useState<DayItem[]>([]);
 
+  // Process data whenever it changes
   useEffect(() => {
-    fetchTimeTable();
-  }, []);
+    if (data && data.length > 0) {
+      processData(data);
+    }
+  }, [data]);
 
-  const fetchTimeTable = async () => {
-    try {
-      const response = await fetch(SHEET_URL);
-      const csvText = await response.text();
+  const processData = (rawRows: string[][]) => {
+    const newMap: Record<string, string> = {};
 
-      Papa.parse(csvText, {
-        header: false,
-        skipEmptyLines: false,
-        complete: (results: ParseResult<string[]>) => {
-          const rawRows = results.data;
-          const newMap: Record<string, string> = {};
-
-          // 1. Process Lecturer Map
-          rawRows.forEach((row) => {
-            row.forEach((cell) => {
-              if (cell && typeof cell === "string") {
-                const normalizedCell = cell.replace(/–/g, "-").trim();
-                if (normalizedCell.includes("-")) {
-                  const parts = normalizedCell.split("-");
-                  if (parts.length >= 2) {
-                    const rawShort = parts[0];
-                    const shortCode = rawShort.replace(/[^a-zA-Z]/g, "");
-                    const fullName = parts.slice(1).join("-").trim();
-                    if (shortCode.length > 0 && shortCode.length < 6 && fullName.length > 0) {
-                      newMap[shortCode] = fullName;
-                    }
-                  }
-                }
+    // 1. Process Lecturer Map
+    rawRows.forEach((row) => {
+      row.forEach((cell) => {
+        if (cell && typeof cell === "string") {
+          const normalizedCell = cell.replace(/–/g, "-").trim();
+          if (normalizedCell.includes("-")) {
+            const parts = normalizedCell.split("-");
+            if (parts.length >= 2) {
+              const rawShort = parts[0];
+              const shortCode = rawShort.replace(/[^a-zA-Z]/g, "");
+              const fullName = parts.slice(1).join("-").trim();
+              if (shortCode.length > 0 && shortCode.length < 6 && fullName.length > 0) {
+                newMap[shortCode] = fullName;
               }
-            });
-          });
-          newMap["MK"] = "Mr. M. Kokulan";
-          setLecturerMap(newMap);
-
-          // 2. Transpose Data
-          const transposed = transpose(rawRows);
-          setColumns(transposed);
-
-          // 3. Dynamic Day Detection (Fixed Logic)
-          const foundDays: DayItem[] = [];
-          
-          // A. Standard Weekdays (Mon-Fri)
-          // We assume these exist if the columns are present in the CSV.
-          DAY_OFFSETS.slice(0, 5).forEach((dayDef) => {
-             if (transposed.length > dayDef.colIndex) {
-                 foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
-             }
-          });
-
-          // B. Weekend (Sat-Sun)
-          // We add these ONLY if the specific header text is present in Row 2 (Index 1).
-          DAY_OFFSETS.slice(5).forEach((dayDef) => {
-             const hasColumnData = transposed.length > dayDef.colIndex;
-             // Check Row 2 (index 1) for explicit header text like "Saturday"
-             const headerCell = rawRows[1]?.[dayDef.colIndex]?.trim();
-
-             if (hasColumnData && headerCell && headerCell !== "") {
-                 foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
-             }
-          });
-
-          // Fallback safety (if CSV is totally empty/broken)
-          if (foundDays.length === 0) {
-             setAvailableDays(DAY_OFFSETS.slice(0, 5).map(d => ({ label: d.label, dayId: d.dayId })));
-          } else {
-             setAvailableDays(foundDays);
-             // Ensure selection is valid
-             if (!foundDays.some(d => d.dayId === selectedDayIndex)) {
-                 setSelectedDayIndex(foundDays[0].dayId);
-             }
+            }
           }
-
-          setLoading(false);
-        },
-        error: (error: Error) => {
-          console.error("Error parsing CSV:", error);
-          setLoading(false);
-        },
+        }
       });
-    } catch (error) {
-      console.error("Network Error:", error);
-      setLoading(false);
+    });
+    newMap["MK"] = "Mr. M. Kokulan";
+    setLecturerMap(newMap);
+
+    // 2. Transpose Data
+    const transposed = transpose(rawRows);
+    setColumns(transposed);
+
+    // 3. Dynamic Day Detection
+    const foundDays: DayItem[] = [];
+    
+    // A. Standard Weekdays (Mon-Fri)
+    DAY_OFFSETS.slice(0, 5).forEach((dayDef) => {
+        if (transposed.length > dayDef.colIndex) {
+            foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
+        }
+    });
+
+    // B. Weekend (Sat-Sun) - Check Headers
+    DAY_OFFSETS.slice(5).forEach((dayDef) => {
+        const hasColumnData = transposed.length > dayDef.colIndex;
+        const headerCell = rawRows[1]?.[dayDef.colIndex]?.trim();
+
+        if (hasColumnData && headerCell && headerCell !== "") {
+            foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
+        }
+    });
+
+    if (foundDays.length === 0) {
+        setAvailableDays(DAY_OFFSETS.slice(0, 5).map(d => ({ label: d.label, dayId: d.dayId })));
+    } else {
+        setAvailableDays(foundDays);
+        if (!foundDays.some(d => d.dayId === selectedDayIndex)) {
+            setSelectedDayIndex(foundDays[0].dayId);
+        }
     }
   };
 
   const handleRefresh = async (event: CustomEvent<RefresherEventDetail>) => {
-    await fetchTimeTable();
+    await onRefresh();
     event.detail.complete();
   };
 
@@ -164,7 +142,6 @@ const Tab1: React.FC = () => {
     return matrix[0].map((_, colIndex) => matrix.map((row) => row[colIndex]));
   };
 
-  // Calculate the actual column index for the selected day
   const day = 1 + selectedDayIndex * 3;
 
   const getLecturerName = (rawText: string) => {
@@ -211,7 +188,6 @@ const Tab1: React.FC = () => {
     let isOccupied = false; 
     let lastRenderedTimeLabel: string | null = null;
 
-    // Strict regex for 08.00-04.00 schedule
     const validTimePattern = /^(0?[89]|1[0-2]|0?[1-4])[:.]00/;
 
     for (let index = 0; index < rowCount; index++) {
@@ -219,12 +195,10 @@ const Tab1: React.FC = () => {
 
       const timeSlotRaw = columns[0]?.[index]?.trim() || "";
 
-      // 1. Verify Time Data
       if (timeSlotRaw !== "" && !validTimePattern.test(timeSlotRaw) && !/\d/.test(timeSlotRaw)) {
         continue;
       }
 
-      // 2. Update Active Time
       if (timeSlotRaw !== "") {
         if (timeSlotRaw !== activeTimeSlot) {
           activeTimeSlot = timeSlotRaw;
@@ -234,7 +208,6 @@ const Tab1: React.FC = () => {
       
       if (!activeTimeSlot) continue;
 
-      // 3. Look Ahead Logic
       const nextTimeRaw = columns[0]?.[index + 1]?.trim();
       const nextRowExists = columns[0]?.[index + 1] !== undefined;
       
@@ -250,7 +223,6 @@ const Tab1: React.FC = () => {
          isLastRowOfBlock = false;
       }
 
-      // 4. Render Logic
       const classData = columns[day] ? columns[day][index] : "";
       const lecturerData = columns[day + 1] ? columns[day + 1][index] : "";
       const venueData = columns[day + 2] ? columns[day + 2][index] : "";
@@ -278,7 +250,7 @@ const Tab1: React.FC = () => {
           <div className="card" style={{ backgroundColor: color }}>
             <div className="card-accent" />
             <div className="card-content">
-              <div className="subject-text">{classData.trim().toUpperCase()}</div>
+              <div className="subject-text">{classData.trim()}</div>
                 {lecturerData ? (
                   <div className="meta-item">
                     <IonIcon icon={personOutline} className="meta-icon" />
@@ -288,7 +260,7 @@ const Tab1: React.FC = () => {
                 {venueData ? (
                   <div className="meta-item">
                     <IonIcon icon={locationOutline} className="meta-icon" />
-                    <span className="sub-detail-text">{venueData.trim().toUpperCase()}</span>
+                    <span className="sub-detail-text">{venueData.trim()}</span>
                   </div>
                 ) : null}
             </div>
@@ -306,7 +278,6 @@ const Tab1: React.FC = () => {
         key = `free-${index}`;
       }
 
-      // 5. Render
       if (cardToRender) {
         const showTime = activeTimeSlot !== lastRenderedTimeLabel;
         items.push(renderTimelineRow(activeTimeSlot, cardToRender, key, showTime));
@@ -341,7 +312,6 @@ const Tab1: React.FC = () => {
             </div>
           </div>
 
-          {/* Dynamic Day Filter */}
           <div className="calendar-strip">
             {availableDays.map((dItem) => {
               const isSelected = selectedDayIndex === dItem.dayId;
@@ -366,7 +336,7 @@ const Tab1: React.FC = () => {
         </IonRefresher>
 
         <div className="content-wrapper">
-          {loading ? (
+          {isLoading ? (
             <div className="loading-container">
               <IonSpinner color="primary" />
               <div className="loading-text">Syncing timetable...</div>

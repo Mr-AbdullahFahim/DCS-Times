@@ -1,7 +1,7 @@
 {
-  "name": "DCS-Times",
+  "name": "dcs-times",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@capacitor/android": "8.0.0",
-    "@capacitor/app": "8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
     "@capacitor/core": "8.0.0",
     "@capacitor/haptics": "8.0.0",
     "@capacitor/keyboard": "8.0.0",
@@ -31,6 +32,7 @@
     "react-router-dom": "^5.3.4"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "8.0.0",
     "@testing-library/dom": ">=7.21.4",
     "@testing-library/jest-dom": "^5.16.5",

@@ -15,15 +15,9 @@ import {
   locationOutline,
   peopleOutline,
 } from "ionicons/icons";
-import Papa, { ParseResult } from "papaparse";
 import "./Tab2.css";
 
-const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1yf0j1uscFgnFOSIZpwufYR2vAO6wwMLM/export?format=csv&gid=1890970529";
-
-// --- 1. TITLE DICTIONARY ---
-// Priority list: The code checks these in order. 
-// If the long title contains 'keyword', it is renamed to 'display'.
+// --- TITLE DICTIONARY ---
 const TITLE_DICTIONARY = [
   { keyword: "Exam", display: "Examinations" },
   { keyword: "Mid Semester", display: "Mid Exams" },
@@ -44,32 +38,23 @@ const TITLE_DICTIONARY = [
   { keyword: "Defence", display: "Project Defence" },
 ];
 
-// --- 2. TITLE PROCESSOR ---
 const standardizeTitle = (rawTitle: string): string => {
   if (!rawTitle) return "Schedule";
-  
   const lowerTitle = rawTitle.toLowerCase();
-
-  // A. Check Dictionary
   for (const item of TITLE_DICTIONARY) {
     if (lowerTitle.includes(item.keyword.toLowerCase())) {
       return item.display;
     }
   }
-
-  // B. Fallback: Regex Cleanup
-  // If no keyword matches, we clean the original string
   let clean = rawTitle;
   clean = clean.replace(/\b(booking|schedule|allocation|timetable|session|venue)\b/gi, "");
-  clean = clean.replace(/\[.*?\]/g, "").replace(/\(.*?\)/g, ""); // Remove brackets
-  clean = clean.replace(/\d{4}\/\d{4}/g, ""); // Remove years like 2022/2023
-  clean = clean.replace(/[-–]/g, ""); // Remove dashes
-  clean = clean.replace(/\s+/g, " ").trim(); // Remove extra spaces
-  
+  clean = clean.replace(/\[.*?\]/g, "").replace(/\(.*?\)/g, ""); 
+  clean = clean.replace(/\d{4}\/\d{4}/g, ""); 
+  clean = clean.replace(/[-–]/g, ""); 
+  clean = clean.replace(/\s+/g, " ").trim(); 
   return clean.length < 2 ? rawTitle : clean;
 };
 
-// --- COLORS ---
 const CARD_COLORS = [
   "#E3F2FD", "#F3E5F5", "#E8F5E9", "#FFF3E0", "#FCE4EC", "#E0F7FA",
 ];
@@ -84,7 +69,6 @@ const getSubjectColor = (subject: string) => {
   return CARD_COLORS[index];
 };
 
-// --- TYPES ---
 interface SectionData {
   id: string;
   title: string;
@@ -93,53 +77,27 @@ interface SectionData {
   rowIndices: number[];
 }
 
-const Tab2: React.FC = () => {
+// Props definition
+interface Tab2Props {
+  data: string[][];
+  isLoading: boolean;
+  onRefresh: () => Promise<void>;
+}
+
+const Tab2: React.FC<Tab2Props> = ({ data, isLoading, onRefresh }) => {
   const [columns, setColumns] = useState<string[][]>([]);
   const [sections, setSections] = useState<SectionData[]>([]);
   const [lecturerMap, setLecturerMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTimeTable();
-  }, []);
-
-  const fetchTimeTable = async () => {
-    try {
-      setLoading(true);
-      
-      const response = await fetch(SHEET_URL);
-      const csvText = await response.text();
-
-      Papa.parse(csvText, {
-        header: false,
-        skipEmptyLines: false,
-        complete: (results: ParseResult<string[]>) => {
-          const rawRows = results.data;
-          
-          processLecturerMap(rawRows);
-
-          const columnWiseData = transpose(rawRows);
-          setColumns(columnWiseData);
-
-          // Now processed synchronously and instantly
-          processSections(columnWiseData);
-          
-          setLoading(false);
-        },
-        error: (error: Error) => {
-          console.error("Error parsing CSV:", error);
-          setLoading(false);
-        },
-      });
-    } catch (error) {
-      console.error("Network Error:", error);
-      setLoading(false);
+    if (data && data.length > 0) {
+      processData(data);
     }
-  };
+  }, [data]);
 
-  const processLecturerMap = (rawRows: string[][]) => {
-     const newMap: Record<string, string> = {};
-     rawRows.forEach((row) => {
+  const processData = (rawRows: string[][]) => {
+    const newMap: Record<string, string> = {};
+    rawRows.forEach((row) => {
         for(let c = 10; c < row.length; c++) {
            const cell = row[c];
            if (cell && typeof cell === "string") {
@@ -160,6 +118,10 @@ const Tab2: React.FC = () => {
       });
       newMap["MK"] = "Mr. M. Kokulan";
       setLecturerMap(newMap);
+
+      const columnWiseData = transpose(rawRows);
+      setColumns(columnWiseData);
+      processSections(columnWiseData);
   };
 
   const processSections = (cols: string[][]) => {
@@ -169,12 +131,10 @@ const Tab2: React.FC = () => {
     const processedRows = new Set<number>();
     const foundSections: SectionData[] = [];
 
-    // Scan for sections
     for (let i = 0; i < rowCount; i++) {
         if (processedRows.has(i)) continue;
 
         let startCol = -1;
-        // Optimization: Scan expected header range
         for (let c = 15; c < Math.min(cols.length, 50); c++) {
             if (cols[c]?.[i]?.trim().toLowerCase() === "date") {
                 startCol = c;
@@ -183,7 +143,6 @@ const Tab2: React.FC = () => {
         }
 
         if (startCol !== -1) {
-            // A. Extract Headers
             const headers: string[] = [];
             let hCol = startCol;
             while(hCol < cols.length) {
@@ -193,17 +152,14 @@ const Tab2: React.FC = () => {
                 hCol++;
             }
 
-            // B. Find Raw Title (Look 1 or 2 rows above)
             let rawTitle = "Event Schedule";
             const prevRow1 = cols[startCol]?.[i - 1]?.trim();
             const prevRow2 = cols[startCol]?.[i - 2]?.trim();
             if (prevRow1 && prevRow1 !== "") rawTitle = prevRow1;
             else if (prevRow2 && prevRow2 !== "") rawTitle = prevRow2;
 
-            // C. Convert to Short Title using Dictionary
             const displayTitle = standardizeTitle(rawTitle);
 
-            // D. Extract Data Rows
             const rowIndices: number[] = [];
             let dRow = i + 1;
             while (dRow < rowCount) {
@@ -229,7 +185,7 @@ const Tab2: React.FC = () => {
   };
 
   const handleRefresh = async (event: CustomEvent<RefresherEventDetail>) => {
-    await fetchTimeTable();
+    await onRefresh();
     event.detail.complete();
   };
 
@@ -265,7 +221,7 @@ const Tab2: React.FC = () => {
 
   const renderSchedule = () => {
     if (sections.length === 0) {
-       if (!loading) {
+       if (!isLoading) {
          return (
             <div className="empty-container">
               <span className="empty-text">No upcoming bookings found.</span>
@@ -372,7 +328,7 @@ const Tab2: React.FC = () => {
         </IonRefresher>
 
         <div className="tab2-content-wrapper">
-          {loading ? (
+          {isLoading ? (
             <div className="loading-container">
               <IonSpinner color="primary" />
               <div className="loading-text">Syncing schedule...</div>
