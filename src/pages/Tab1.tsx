@@ -8,22 +8,20 @@ import {
   IonSpinner,
   IonIcon,
   RefresherEventDetail,
+  isPlatform,
 } from "@ionic/react";
-import { 
-  personOutline, 
-  locationOutline, 
-  fastFoodOutline 
-} from "ionicons/icons";
+import { personOutline, locationOutline, fastFoodOutline } from "ionicons/icons";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import "./Tab1.css";
 
 const DAY_OFFSETS = [
-  { label: "Mon", colIndex: 1, dayId: 0 },
-  { label: "Tue", colIndex: 4, dayId: 1 },
-  { label: "Wed", colIndex: 7, dayId: 2 },
-  { label: "Thu", colIndex: 10, dayId: 3 },
-  { label: "Fri", colIndex: 13, dayId: 4 },
-  { label: "Sat", colIndex: 16, dayId: 5 },
-  { label: "Sun", colIndex: 19, dayId: 6 },
+  { label: "Mon", colIndex: 1, dayId: 0, weekday: 2 }, // weekday 2 = Monday in Capacitor
+  { label: "Tue", colIndex: 4, dayId: 1, weekday: 3 },
+  { label: "Wed", colIndex: 7, dayId: 2, weekday: 4 },
+  { label: "Thu", colIndex: 10, dayId: 3, weekday: 5 },
+  { label: "Fri", colIndex: 13, dayId: 4, weekday: 6 },
+  { label: "Sat", colIndex: 16, dayId: 5, weekday: 7 },
+  { label: "Sun", colIndex: 19, dayId: 6, weekday: 1 },
 ];
 
 const LEVELS = [
@@ -34,11 +32,16 @@ const LEVELS = [
 ];
 
 const CARD_COLORS = [
-  "#E3F2FD", "#F3E5F5", "#E8F5E9", "#FFF3E0", "#FCE4EC", "#E0F7FA",
+  "var(--card-bg-0)",
+  "var(--card-bg-1)",
+  "var(--card-bg-2)",
+  "var(--card-bg-3)",
+  "var(--card-bg-4)",
+  "var(--card-bg-5)",
 ];
 
 const getSubjectColor = (subject: string) => {
-  if (!subject) return "#FFFFFF";
+  if (!subject) return "var(--ion-card-background)";
   let hash = 0;
   for (let i = 0; i < subject.length; i++) {
     hash = subject.charCodeAt(i) + ((hash << 5) - hash);
@@ -47,36 +50,121 @@ const getSubjectColor = (subject: string) => {
   return CARD_COLORS[index];
 };
 
-interface DayItem {
-  label: string;
-  dayId: number;
+interface DayItem { label: string; dayId: number; }
+interface Tab1Props { 
+    data: string[][]; 
+    isLoading: boolean; 
+    onRefresh: () => Promise<void>; 
+    userLevel: number; 
 }
 
-// Props definition
-interface Tab1Props {
-  data: string[][];
-  isLoading: boolean;
-  onRefresh: () => Promise<void>;
-}
-
-const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
+const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh, userLevel }) => {
   const [columns, setColumns] = useState<string[][]>([]);
   const [lecturerMap, setLecturerMap] = useState<Record<string, string>>({});
   const [selectedLevelOffset, setSelectedLevelOffset] = useState(1);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [availableDays, setAvailableDays] = useState<DayItem[]>([]);
 
-  // Process data whenever it changes
+  // Sync the view with the User's Level preference
   useEffect(() => {
-    if (data && data.length > 0) {
-      processData(data);
+    if (userLevel >= 1 && userLevel <= 4) {
+      setSelectedLevelOffset(userLevel);
     }
+  }, [userLevel]);
+
+  // Process data when it loads
+  useEffect(() => {
+    if (data && data.length > 0) processData(data);
   }, [data]);
 
+  // Schedule Notifications when data or level updates
+  useEffect(() => {
+    if (data && data.length > 0 && userLevel) {
+       scheduleNotifications(data, userLevel);
+    }
+  }, [data, userLevel]);
+
+  /* ---------------- NOTIFICATION LOGIC ---------------- */
+  const scheduleNotifications = async (rawRows: string[][], level: number) => {
+    if (!isPlatform('hybrid')) return;
+
+    // 1. Clear existing to prevent duplicates
+    try {
+        const pending = await LocalNotifications.getPending();
+        if (pending.notifications.length > 0) {
+            await LocalNotifications.cancel(pending);
+        }
+    } catch (e) { console.error("Error clearing notifications", e); }
+
+    const notificationsToSchedule: any[] = [];
+    const transposed = transpose(rawRows);
+    let idCounter = 1;
+    const levelStr = level.toString();
+
+    // 2. Scan every day
+    DAY_OFFSETS.forEach(dayConfig => {
+        // Assuming Time is in Column 0 (based on renderTimetable logic)
+        const timeCol = transposed[0];
+        // Based on DAY_OFFSETS, data starts at colIndex
+        const classCol = transposed[dayConfig.colIndex]; 
+
+        if (!timeCol || !classCol) return;
+
+        const rowCount = classCol.length;
+        const validTimePattern = /^(0?[89]|1[0-2]|0?[1-4])[:.]00/;
+
+        for(let i=0; i<rowCount; i++) {
+            const timeRaw = timeCol[i]?.trim();
+            const cellData = classCol[i]?.trim();
+
+            if (!timeRaw || !cellData) continue;
+            // Only proceed if time is valid AND cell matches user level
+            if ((validTimePattern.test(timeRaw) || /\d/.test(timeRaw)) && cellData.includes(levelStr)) {
+                
+                // Parse Start Time (e.g. "08.30-09.30" -> 08:30)
+                const startTimeStr = timeRaw.split("-")[0].trim();
+                const [hStr, mStr] = startTimeStr.split(/[:.]/);
+                let hour = parseInt(hStr);
+                let minute = parseInt(mStr);
+
+                if (isNaN(hour) || isNaN(minute)) continue;
+
+                // Subtract 15 minutes
+                let notifyHour = hour;
+                let notifyMinute = minute - 15;
+                if (notifyMinute < 0) {
+                    notifyMinute += 60;
+                    notifyHour -= 1;
+                }
+
+                // Create Notification Object
+                notificationsToSchedule.push({
+                    id: idCounter++,
+                    title: `Upcoming Lecture (${dayConfig.label})`,
+                    body: `${cellData} starts at ${startTimeStr}.`,
+                    schedule: {
+                        on: {
+                            weekday: dayConfig.weekday,
+                            hour: notifyHour,
+                            minute: notifyMinute
+                        },
+                        allowWhileIdle: true,
+                    }
+                });
+            }
+        }
+    });
+
+    // 3. Schedule Batch
+    if (notificationsToSchedule.length > 0) {
+        await LocalNotifications.schedule({ notifications: notificationsToSchedule });
+        console.log(`Scheduled ${notificationsToSchedule.length} notifications.`);
+    }
+  };
+
+  /* ---------------- DATA PROCESSING ---------------- */
   const processData = (rawRows: string[][]) => {
     const newMap: Record<string, string> = {};
-
-    // 1. Process Lecturer Map
     rawRows.forEach((row) => {
       row.forEach((cell) => {
         if (cell && typeof cell === "string") {
@@ -84,8 +172,7 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
           if (normalizedCell.includes("-")) {
             const parts = normalizedCell.split("-");
             if (parts.length >= 2) {
-              const rawShort = parts[0];
-              const shortCode = rawShort.replace(/[^a-zA-Z]/g, "");
+              const shortCode = parts[0].replace(/[^a-zA-Z]/g, "");
               const fullName = parts.slice(1).join("-").trim();
               if (shortCode.length > 0 && shortCode.length < 6 && fullName.length > 0) {
                 newMap[shortCode] = fullName;
@@ -98,37 +185,24 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
     newMap["MK"] = "Mr. M. Kokulan";
     setLecturerMap(newMap);
 
-    // 2. Transpose Data
     const transposed = transpose(rawRows);
     setColumns(transposed);
 
-    // 3. Dynamic Day Detection
     const foundDays: DayItem[] = [];
-    
-    // A. Standard Weekdays (Mon-Fri)
     DAY_OFFSETS.slice(0, 5).forEach((dayDef) => {
-        if (transposed.length > dayDef.colIndex) {
-            foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
-        }
+        if (transposed.length > dayDef.colIndex) foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
     });
-
-    // B. Weekend (Sat-Sun) - Check Headers
     DAY_OFFSETS.slice(5).forEach((dayDef) => {
         const hasColumnData = transposed.length > dayDef.colIndex;
         const headerCell = rawRows[1]?.[dayDef.colIndex]?.trim();
-
-        if (hasColumnData && headerCell && headerCell !== "") {
-            foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
-        }
+        if (hasColumnData && headerCell && headerCell !== "") foundDays.push({ label: dayDef.label, dayId: dayDef.dayId });
     });
 
     if (foundDays.length === 0) {
         setAvailableDays(DAY_OFFSETS.slice(0, 5).map(d => ({ label: d.label, dayId: d.dayId })));
     } else {
         setAvailableDays(foundDays);
-        if (!foundDays.some(d => d.dayId === selectedDayIndex)) {
-            setSelectedDayIndex(foundDays[0].dayId);
-        }
+        if (!foundDays.some(d => d.dayId === selectedDayIndex)) setSelectedDayIndex(foundDays[0].dayId);
     }
   };
 
@@ -187,17 +261,13 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
     let activeTimeSlot = "";
     let isOccupied = false; 
     let lastRenderedTimeLabel: string | null = null;
-
     const validTimePattern = /^(0?[89]|1[0-2]|0?[1-4])[:.]00/;
 
     for (let index = 0; index < rowCount; index++) {
       if (index <= 2) continue; 
 
       const timeSlotRaw = columns[0]?.[index]?.trim() || "";
-
-      if (timeSlotRaw !== "" && !validTimePattern.test(timeSlotRaw) && !/\d/.test(timeSlotRaw)) {
-        continue;
-      }
+      if (timeSlotRaw !== "" && !validTimePattern.test(timeSlotRaw) && !/\d/.test(timeSlotRaw)) continue;
 
       if (timeSlotRaw !== "") {
         if (timeSlotRaw !== activeTimeSlot) {
@@ -210,17 +280,11 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
 
       const nextTimeRaw = columns[0]?.[index + 1]?.trim();
       const nextRowExists = columns[0]?.[index + 1] !== undefined;
-      
       let isLastRowOfBlock = false;
 
-      if (!nextRowExists) {
-         isLastRowOfBlock = true;
-      } else if (nextTimeRaw !== "") {
-         if (nextTimeRaw !== activeTimeSlot) {
-            isLastRowOfBlock = true;
-         }
-      } else {
-         isLastRowOfBlock = false;
+      if (!nextRowExists) isLastRowOfBlock = true;
+      else if (nextTimeRaw !== "") {
+         if (nextTimeRaw !== activeTimeSlot) isLastRowOfBlock = true;
       }
 
       const classData = columns[day] ? columns[day][index] : "";
@@ -295,7 +359,6 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
             <div className="header-title">Daily Schedule</div>
             <div className="header-subtitle">DCS, UoJ</div>
           </div>
-
           <div className="level-filter-container">
             <div className="level-scroll-content">
               {LEVELS.map((level) => (
@@ -311,7 +374,6 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
               ))}
             </div>
           </div>
-
           <div className="calendar-strip">
             {availableDays.map((dItem) => {
               const isSelected = selectedDayIndex === dItem.dayId;
@@ -334,7 +396,6 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
         <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
           <IonRefresherContent pullingText="Pull to refresh" refreshingSpinner="circles" />
         </IonRefresher>
-
         <div className="content-wrapper">
           {isLoading ? (
             <div className="loading-container">
@@ -352,5 +413,4 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh }) => {
     </IonPage>
   );
 };
-
 export default Tab1;
