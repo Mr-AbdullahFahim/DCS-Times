@@ -1,58 +1,41 @@
-/* Container Backgrounds */
-.tab3-header-bg {
-  background-color: #ffffff;
-}
+.tab3-header-bg { background-color: var(--ion-background-color); }
+.tab3-content-bg { --background: var(--ion-background-color); }
 
-.tab3-content-bg {
-  --background: #ffffff;
-}
-
-/* Header */
 .tab3-header-wrapper {
-  background-color: #ffffff;
+  background-color: var(--ion-background-color);
   padding-top: env(safe-area-inset-top);
   display: flex;
   flex-direction: column;
 }
 
-.tab3-header-container {
-  padding: 10px 24px 15px 24px;
-}
-
+.tab3-header-container { padding: 10px 24px 15px 24px; }
 .tab3-header-title {
   font-size: 28px;
   font-weight: 800;
-  color: #1a2138;
+  color: var(--ion-text-color);
   letter-spacing: -0.5px;
 }
-
 .tab3-header-subtitle {
   font-size: 14px;
-  color: #8f9bb3;
+  color: var(--ion-color-medium);
   margin-top: 2px;
   font-weight: 600;
 }
 
-/* Content Wrapper (Rounded Top Effect) */
 .tab3-content-wrapper {
-  background-color: #f8f9fb;
-  border-top-left-radius: 30px;
-  border-top-right-radius: 30px;
+  background-color: var(--ion-color-light);
   min-height: 100%;
   padding-top: 20px;
-  margin-top: -10px; /* Pull up to cover header bottom */
+  margin-top: -10px; 
   position: relative;
   z-index: 10;
   overflow: hidden;
 }
 
-.tab3-scroll-content {
-  padding: 0 24px 40px 24px;
-}
+.tab3-scroll-content { padding: 0 24px 40px 24px; }
 
-/* Cards */
 .info-card {
-  background-color: #ffffff;
+  background-color: var(--ion-card-background, #ffffff);
   border-radius: 20px;
   padding: 20px;
   margin-bottom: 16px;
@@ -72,65 +55,33 @@
 .card-title {
   font-size: 18px;
   font-weight: 700;
-  color: #1a2138;
+  color: var(--ion-text-color);
   margin-bottom: 8px;
 }
 
 .card-text {
   font-size: 14px;
-  color: #596886;
+  color: var(--ion-color-medium);
   line-height: 22px;
   font-weight: 400;
 }
 
 .divider {
   height: 1px;
-  background-color: #f0f2f5;
+  background-color: var(--ion-color-step-150);
   margin: 16px 0;
 }
 
-/* Team Section */
-.dev-container {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-}
+.dev-container { display: flex; flex-direction: row; justify-content: space-between; align-items: center; }
+.dev-info { flex: 1; }
+.dev-row { display: flex; flex-direction: row; align-items: center; margin-bottom: 4px; }
+.dev-name { margin-left: 8px; font-size: 15px; color: var(--ion-text-color); font-weight: 600; }
+.dev-id { font-size: 13px; color: var(--ion-color-medium); font-weight: 500; margin-left: 28px; }
 
-.dev-info {
-  flex: 1;
-}
-
-.dev-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.dev-name {
-  margin-left: 8px;
-  font-size: 15px;
-  color: #1a2138;
-  font-weight: 600;
-}
-
-.dev-id {
-  font-size: 13px;
-  color: #8f9bb3;
-  font-weight: 500;
-  margin-left: 28px; /* Indent to align with name */
-}
-
-.social-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
+.social-row { display: flex; flex-direction: row; align-items: center; }
 .social-button {
   padding: 10px;
-  background-color: #f7f9fc;
+  background-color: var(--ion-color-light);
   border-radius: 50%;
   margin-left: 10px;
   cursor: pointer;
@@ -139,12 +90,8 @@
   justify-content: center;
   transition: background-color 0.2s;
 }
+.social-button:active { background-color: var(--ion-color-step-200); }
 
-.social-button:active {
-  background-color: #e4e9f2;
-}
-
-/* Button */
 .contact-button {
   background-color: #4a90e2;
   display: flex;
@@ -159,27 +106,8 @@
   color: #ffffff;
   transition: opacity 0.2s;
 }
+.contact-button:active { opacity: 0.8; }
+.button-text { color: #fff; font-weight: 600; font-size: 14px; }
 
-.contact-button:active {
-  opacity: 0.8;
-}
-
-.button-text {
-  color: #fff;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-/* Footer */
-.footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 20px;
-}
-
-.footer-text {
-  font-size: 12px;
-  color: #8f9bb3;
-  margin-bottom: 4px;
-}
+.footer { display: flex; flex-direction: column; align-items: center; margin-top: 20px; }
+.footer-text { font-size: 12px; color: var(--ion-color-medium); margin-bottom: 4px; }
