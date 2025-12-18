@@ -88,6 +88,12 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh, userLevel }) =>
   const scheduleNotifications = async (rawRows: string[][], level: number) => {
     if (!isPlatform('hybrid')) return;
 
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display !== "granted") {
+      console.warn("Notification permission denied");
+      return;
+    }
+
     // 1. Clear existing to prevent duplicates
     try {
         const pending = await LocalNotifications.getPending();
@@ -142,6 +148,7 @@ const Tab1: React.FC<Tab1Props> = ({ data, isLoading, onRefresh, userLevel }) =>
                     id: idCounter++,
                     title: `Upcoming Lecture (${dayConfig.label})`,
                     body: `${cellData} starts at ${startTimeStr}.`,
+                    channelId: "timetable_channel",
                     schedule: {
                         on: {
                             weekday: dayConfig.weekday,

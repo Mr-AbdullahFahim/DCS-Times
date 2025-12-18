@@ -216,3 +216,75 @@
   height: 56px;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
 }
+
+/* --- ADDED CONNECTIVITY STYLES --- */
+
+.app-main-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* The router fills all available space below the notification */
+.router-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.conn-bar {
+  /* Changed from fixed to relative/static to push content down */
+  position: relative; 
+  width: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  padding-top: env(safe-area-inset-top);
+  flex-shrink: 0; /* Ensures the bar doesn't compress */
+}
+
+/* Success State: Back to Online */
+.conn-bar.back-online {
+  background-color: var(--ion-color-success);
+  color: #ffffff;
+  min-height: calc(env(safe-area-inset-top));
+  padding:2px 0px;
+}
+.conn-bar.back-online ion-icon {
+  margin-right: 8px;
+}
+
+/* Offline Banner: Yellow Warning */
+.conn-bar.offline-banner {
+  background-color: var(--ion-color-warning);
+  color: #000;
+  /* min-height: calc(env(safe-area-inset-top) + 20px); */
+  justify-content: space-between;
+  padding-left: 15px;
+}
+.conn-bar.offline-banner .conn-content {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+}
+.conn-bar.offline-banner ion-icon {
+  margin-right: 8px;
+}
+.conn-bar.offline-banner ion-button {
+  --color: #000;
+}
+
+/* Offline Mini: Small Height Indicator */
+.conn-bar.offline-mini {
+  background-color: var(--ion-color-medium);
+  color: #fff;
+  width: 100%; /* Spans full width so it pushes properly */
+  min-height: calc(env(safe-area-inset-top) + 20px);
+  font-size: 10px;
+  text-transform: uppercase;
+}

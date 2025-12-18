@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Redirect, Route } from "react-router-dom";
 import {
   IonApp,
@@ -9,23 +9,26 @@ import {
   IonTabButton,
   IonTabs,
   IonAlert,
-  IonToast,
   setupIonicReact,
   isPlatform,
-  IonPage,
-  IonContent,
   IonButton,
 } from "@ionic/react";
 import { IonReactRouter } from "@ionic/react-router";
-import { calendar, book, informationCircle, cloudOfflineOutline, refreshOutline, wifi } from "ionicons/icons";
+import {
+  calendar,
+  book,
+  informationCircle,
+  wifiOutline,
+  checkmarkCircle,
+  closeOutline
+} from "ionicons/icons";
 import Papa, { ParseResult } from "papaparse";
 import { App as CapApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Network } from "@capacitor/network";
 import { LocalNotifications } from "@capacitor/local-notifications";
-// 1. IMPORT PREFERENCES (Async Storage)
-import { Preferences } from '@capacitor/preferences';
+import { Preferences } from "@capacitor/preferences";
 
 import Tab1 from "./pages/Tab1";
 import Tab2 from "./pages/Tab2";
@@ -41,7 +44,6 @@ import "@ionic/react/css/text-alignment.css";
 import "@ionic/react/css/text-transformation.css";
 import "@ionic/react/css/flex-utils.css";
 import "@ionic/react/css/display.css";
-
 import "./theme/variables.css";
 
 setupIonicReact();
@@ -56,95 +58,50 @@ const LEVEL_KEY = "user_study_level";
 const App: React.FC = () => {
   const [timetableData, setTimetableData] = useState<string[][]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNetworkAvailable, setIsNetworkAvailable] = useState(true);
-  const [showOfflineToast, setShowOfflineToast] = useState(false);
   
-  // Level State
+  const [isNetworkAvailable, setIsNetworkAvailable] = useState(true);
+  const [isDismissed, setIsDismissed] = useState(false);
+  const [showOnlineStatus, setShowOnlineStatus] = useState(false);
+
   const [userLevel, setUserLevel] = useState<number>(1);
   const [showLevelAlert, setShowLevelAlert] = useState(false);
-
-  // Update State
   const [showUpdateAlert, setShowUpdateAlert] = useState(false);
   const [updateInfo, setUpdateInfo] = useState({ version: "", url: "", body: "" });
 
-  /* ---------------- INIT & CACHE LOAD ---------------- */
+  const updateCheckedRef = useRef(false);
 
-  useEffect(() => {
-    // We wrap everything in an async function to handle Preferences
-    const initApp = async () => {
-      // 1. Request Notification Permissions
-      if (isPlatform('hybrid')) {
-        await LocalNotifications.requestPermissions();
-      }
-
-      // 2. Check for User Level (ASYNC)
-      const { value: storedLevel } = await Preferences.get({ key: LEVEL_KEY });
-      
-      if (storedLevel) {
-        setUserLevel(parseInt(storedLevel));
-      } else {
-        // Only show alert if storage is empty
-        setShowLevelAlert(true);
-      }
-
-      // 3. Load Cache (ASYNC)
-      const { value: cached } = await Preferences.get({ key: STORAGE_KEY });
-      
-      if (cached) {
-        try {
-          const parsedData = JSON.parse(cached);
-          if (Array.isArray(parsedData) && parsedData.length > 0) {
-            setTimetableData(parsedData);
-            setIsLoading(false); // Show cached data immediately
-          }
-        } catch (e) {
-          console.error("Cache parse error", e);
-        }
-      }
-    };
-
-    initApp();
-  }, []);
-
-  /* ---------------- DATA FETCH ---------------- */
+  const requestNotificationPermission = async () => {
+    if (!isPlatform("hybrid")) return;
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display === "granted") return;
+    await LocalNotifications.requestPermissions();
+  };
 
   const fetchAllData = useCallback(async () => {
     const status = await Network.getStatus();
-    
     if (!status.connected) {
       setIsNetworkAvailable(false);
       if (timetableData.length === 0) setIsLoading(false);
-      else setShowOfflineToast(true);
       return;
     }
 
     setIsNetworkAvailable(true);
-    if (timetableData.length === 0) setIsLoading(true);
-
     try {
-      const masterResponse = await fetch(MASTER_SHEET_URL);
-      if (!masterResponse.ok) throw new Error("Master sheet fetch failed");
-      const masterCsvText = await masterResponse.text();
-
-      Papa.parse(masterCsvText, {
-        complete: async (masterResults: ParseResult<string[]>) => {
-          const sheetId = masterResults.data?.[0]?.[0]?.trim();
+      const masterRes = await fetch(MASTER_SHEET_URL);
+      const masterText = await masterRes.text();
+      Papa.parse(masterText, {
+        complete: async (master: ParseResult<string[]>) => {
+          const sheetId = master.data?.[0]?.[0]?.trim();
           if (!sheetId) return;
-
-          const dynamicUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${TIMETABLE_GID}`;
-          const dataResponse = await fetch(dynamicUrl);
-          const dataCsvText = await dataResponse.text();
-
-          Papa.parse(dataCsvText, {
-            complete: async (results: ParseResult<string[]>) => {
-              const freshData = results.data;
-              if (freshData && freshData.length > 0) {
-                setTimetableData(freshData);
-                // SAVE TO ASYNC STORAGE
-                await Preferences.set({
-                  key: STORAGE_KEY,
-                  value: JSON.stringify(freshData)
-                });
+          const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${TIMETABLE_GID}`;
+          const dataRes = await fetch(url);
+          const dataText = await dataRes.text();
+          Papa.parse(dataText, {
+            complete: async (res: ParseResult<string[]>) => {
+              const cleanData = res.data.filter(row => row && row.some(cell => cell?.trim()));
+              if (cleanData.length > 0) {
+                setTimetableData(cleanData);
+                await Preferences.set({ key: STORAGE_KEY, value: JSON.stringify(cleanData) });
               }
               setIsLoading(false);
             },
@@ -153,177 +110,176 @@ const App: React.FC = () => {
         },
         error: () => setIsLoading(false),
       });
-    } catch (error) {
-      console.error("Sync error:", error);
-      const currentStatus = await Network.getStatus();
-      if (!currentStatus.connected) setIsNetworkAvailable(false);
-      setIsLoading(false);
-    }
-  }, [timetableData.length]);
+    } catch (e) { setIsLoading(false); }
+  }, [timetableData]);
 
   useEffect(() => {
-    fetchAllData();
-    const networkListener = Network.addListener('networkStatusChange', status => {
-      setIsNetworkAvailable(status.connected);
-      if (status.connected) {
-        setShowOfflineToast(false);
-        fetchAllData();
-      } else {
-        setShowOfflineToast(true);
+    const init = async () => {
+      if (isPlatform("hybrid")) {
+        await LocalNotifications.createChannel({ id: "timetable_channel", name: "Timetable Alerts", importance: 5 });
       }
-    });
-    return () => { networkListener.then(handle => handle.remove()); };
-  }, [fetchAllData]);
+      const { value: storedLevel } = await Preferences.get({ key: LEVEL_KEY });
+      if (storedLevel) setUserLevel(parseInt(storedLevel));
+      else setShowLevelAlert(true);
 
-  /* ---------------- UPDATE CHECK ---------------- */
-
-  const checkForUpdate = async () => {
-    try {
-      if (!isPlatform("hybrid")) return;
-      const appInfo = await CapApp.getInfo();
-      const currentVersion = appInfo.version;
-
-      const response = await fetch(
-        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`
-      );
-      if (!response.ok) return;
-
-      const data = await response.json();
-      if (isNewer(currentVersion, data.tag_name)) {
-        setUpdateInfo({
-          version: data.tag_name,
-          url: data.html_url,
-          body: data.body || "Performance improvements and bug fixes.",
-        });
-        setShowUpdateAlert(true);
+      const { value: cached } = await Preferences.get({ key: STORAGE_KEY });
+      if (cached) {
+        setTimetableData(JSON.parse(cached));
+        setIsLoading(false);
       }
-    } catch (e) { console.error(e); }
-  };
-
-  const isNewer = (v1: string, v2: string) => {
-    const a = v1.replace(/^v/, "").split(".").map(Number);
-    const b = v2.replace(/^v/, "").split(".").map(Number);
-    return b.some((n, i) => n > (a[i] || 0));
-  };
-
-  useEffect(() => { if (isNetworkAvailable) checkForUpdate(); }, [isNetworkAvailable]);
-
-  /* ---------------- STATUS BAR ---------------- */
-
-  useEffect(() => {
-    const applyStatusBar = async (dark: boolean) => {
-      if (!isPlatform("hybrid")) return;
-      await StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light });
-      if (isPlatform("android")) await StatusBar.setOverlaysWebView({ overlay: false });
-      else await StatusBar.setOverlaysWebView({ overlay: true });
+      fetchAllData();
     };
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    applyStatusBar(media.matches);
-    const listener = (e: MediaQueryListEvent) => applyStatusBar(e.matches);
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
+    init();
   }, []);
 
-  /* ---------------- RENDER UI ---------------- */
+  useEffect(() => {
+    const listener = Network.addListener("networkStatusChange", (status) => {
+      if (status.connected && !isNetworkAvailable) {
+        setShowOnlineStatus(true);
+        setTimeout(() => setShowOnlineStatus(false), 3000);
+        setIsDismissed(false); 
+        fetchAllData();
+      }
+      setIsNetworkAvailable(status.connected);
+    });
+    return () => { listener.then(h => h.remove()); };
+  }, [isNetworkAvailable, fetchAllData]);
 
-  const isBlockingError = !isNetworkAvailable && timetableData.length === 0;
+  const checkForUpdate = async () => {
+    if (!isPlatform("hybrid")) return;
+    try {
+      const info = await CapApp.getInfo();
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`);
+      const data = await res.json();
+      const current = info.version.replace(/^v/, "").split(".").map(Number);
+      const latest = data.tag_name.replace(/^v/, "").split(".").map(Number);
+      let isNewer = false;
+      for (let i = 0; i < Math.max(current.length, latest.length); i++) {
+        if ((latest[i] || 0) > (current[i] || 0)) { isNewer = true; break; }
+        if ((latest[i] || 0) < (current[i] || 0)) break;
+      }
+      if (isNewer) {
+        setUpdateInfo({ version: data.tag_name, url: data.html_url, body: data.body });
+        setShowUpdateAlert(true);
+      }
+    } catch {}
+  };
 
-  if (isBlockingError) {
-    return (
-      <IonApp>
-        <IonPage>
-          <IonContent fullscreen className="ion-padding">
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center' }}>
-              <div style={{ backgroundColor: 'var(--ion-color-light-shade)', padding: '30px', borderRadius: '50%', marginBottom: '20px' }}>
-                <IonIcon icon={cloudOfflineOutline} style={{ fontSize: '64px', color: 'var(--ion-color-medium)' }} />
-              </div>
-              <h2 style={{ fontWeight: 700, marginBottom: '8px' }}>No Connection</h2>
-              <p style={{ color: 'var(--ion-color-medium)', maxWidth: '280px', marginBottom: '30px' }}>
-                We couldn't find any saved data on your device, and there is no internet connection.
-              </p>
-              <IonButton shape="round" onClick={() => fetchAllData()}>
-                <IonIcon slot="start" icon={refreshOutline} />
-                Try Again
-              </IonButton>
-            </div>
-          </IonContent>
-        </IonPage>
-      </IonApp>
-    );
-  }
+  useEffect(() => {
+    if (isNetworkAvailable && !updateCheckedRef.current) {
+      updateCheckedRef.current = true;
+      checkForUpdate();
+    }
+  }, [isNetworkAvailable]);
+
+  useEffect(() => {
+    if (!isPlatform("hybrid")) return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = async (dark: boolean) => {
+      await StatusBar.setOverlaysWebView({ overlay: false });
+      await StatusBar.setBackgroundColor({ color: dark ? "#000000" : "#ffffff" });
+      await StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light });
+    };
+    apply(media.matches);
+    media.addEventListener("change", e => apply(e.matches));
+  }, []);
 
   return (
     <IonApp>
-      <IonToast isOpen={showOfflineToast} onDidDismiss={() => setShowOfflineToast(false)} message="You are offline. Showing cached data." duration={3000} position="top" icon={wifi} color="warning" buttons={[{ text: 'Dismiss', role: 'cancel' }]} style={{ marginTop: '40px' }} />
+      {/* Container to handle the push effect */}
+      <div className="app-main-wrapper">
+        
+        {/* 1. Back Online Component */}
+        {showOnlineStatus && (
+          <div className="conn-bar back-online">
+            <IonIcon icon={checkmarkCircle} />
+            <IonLabel>Back to online</IonLabel>
+          </div>
+        )}
 
-      {/* LEVEL SELECTION ALERT */}
+        {/* 2. Offline States */}
+        {!isNetworkAvailable && !showOnlineStatus && (
+          <>
+            {!isDismissed ? (
+              <div className="conn-bar offline-banner">
+                <div className="conn-content">
+                  <IonIcon icon={wifiOutline} />
+                  <IonLabel>You are offline. Showing cached data.</IonLabel>
+                </div>
+                <IonButton fill="clear" onClick={() => setIsDismissed(true)}>
+                  <IonIcon slot="icon-only" icon={closeOutline} />
+                </IonButton>
+              </div>
+            ) : (
+              <div className="conn-bar offline-mini">
+                Offline
+              </div>
+            )}
+          </>
+        )}
+
+        {/* This Router wrapper now flexes to fill the remaining space */}
+        <div className="router-wrapper">
+          <IonReactRouter>
+            <IonTabs>
+              <IonRouterOutlet>
+                <Route exact path="/tab1">
+                  <Tab1 data={timetableData} isLoading={isLoading} onRefresh={fetchAllData} userLevel={userLevel} />
+                </Route>
+                <Route exact path="/tab2">
+                  <Tab2 data={timetableData} isLoading={isLoading} onRefresh={fetchAllData} />
+                </Route>
+                <Route exact path="/tab3"><Tab3 /></Route>
+                <Route exact path="/"><Redirect to="/tab1" /></Route>
+              </IonRouterOutlet>
+
+              <IonTabBar slot="bottom">
+                <IonTabButton tab="tab1" href="/tab1">
+                  <IonIcon icon={calendar} /><IonLabel>Schedule</IonLabel>
+                </IonTabButton>
+                <IonTabButton tab="tab2" href="/tab2">
+                  <IonIcon icon={book} /><IonLabel>Bookings</IonLabel>
+                </IonTabButton>
+                <IonTabButton tab="tab3" href="/tab3">
+                  <IonIcon icon={informationCircle} /><IonLabel>Info</IonLabel>
+                </IonTabButton>
+              </IonTabBar>
+            </IonTabs>
+          </IonReactRouter>
+        </div>
+      </div>
+
       <IonAlert
         isOpen={showLevelAlert}
         backdropDismiss={false}
-        header="Welcome! 👋"
-        subHeader="Select your Study Level"
-        message="This helps us show you the correct timetable and send notifications."
+        header="Welcome!"
+        message="Select your study level"
         inputs={[
-          { label: 'Level 1', type: 'radio', value: 1 },
-          { label: 'Level 2', type: 'radio', value: 2 },
-          { label: 'Level 3', type: 'radio', value: 3 },
-          { label: 'Level 4', type: 'radio', value: 4 },
+          { label: "Level 1", type: "radio", value: 1, checked: true },
+          { label: "Level 2", type: "radio", value: 2 },
+          { label: "Level 3", type: "radio", value: 3 },
+          { label: "Level 4", type: "radio", value: 4 },
         ]}
-        buttons={[
-          {
-            text: 'Get Started',
-            handler: async (data) => {
-              if (data) {
-                setUserLevel(data);
-                // SAVE LEVEL TO ASYNC STORAGE
-                await Preferences.set({
-                  key: LEVEL_KEY,
-                  value: data.toString()
-                });
-                setShowLevelAlert(false);
-              } else {
-                return false; 
-              }
-            }
-          }
-        ]}
+        buttons={[{
+          text: "Get Started",
+          handler: async (level) => {
+            setUserLevel(level);
+            await Preferences.set({ key: LEVEL_KEY, value: level.toString() });
+            await requestNotificationPermission();
+            setShowLevelAlert(false);
+          },
+        }]}
       />
 
-      <IonAlert isOpen={showUpdateAlert} onDidDismiss={() => setShowUpdateAlert(false)} header="Update Available 🚀" subHeader={`Version ${updateInfo.version}`} buttons={[{ text: "Later", role: "cancel" }, { text: "Update", handler: () => Browser.open({ url: updateInfo.url }) }]} />
-
-      <IonReactRouter>
-        <IonTabs>
-          <IonRouterOutlet>
-            <Route exact path="/tab1">
-              <Tab1 data={timetableData} isLoading={isLoading} onRefresh={fetchAllData} userLevel={userLevel} />
-            </Route>
-            <Route exact path="/tab2">
-              <Tab2 data={timetableData} isLoading={isLoading} onRefresh={fetchAllData} />
-            </Route>
-            <Route exact path="/tab3">
-              <Tab3 />
-            </Route>
-            <Route exact path="/">
-              <Redirect to="/tab1" />
-            </Route>
-          </IonRouterOutlet>
-
-          <IonTabBar slot="bottom" className="custom-tabbar">
-            <IonTabButton tab="tab1" href="/tab1">
-              <IonIcon icon={calendar} />
-              <IonLabel>Schedule</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="tab2" href="/tab2">
-              <IonIcon icon={book} />
-              <IonLabel>Bookings</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="tab3" href="/tab3">
-              <IonIcon icon={informationCircle} />
-              <IonLabel>Info</IonLabel>
-            </IonTabButton>
-          </IonTabBar>
-        </IonTabs>
-      </IonReactRouter>
+      <IonAlert
+        isOpen={showUpdateAlert}
+        header="Update Available"
+        subHeader={`Version ${updateInfo.version}`}
+        buttons={[
+          { text: "Later", role: "cancel" },
+          { text: "Update", handler: () => Browser.open({ url: updateInfo.url }) },
+        ]}
+      />
     </IonApp>
   );
 };
