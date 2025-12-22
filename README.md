@@ -28,8 +28,8 @@ Download the latest `.apk` from the [Releases Page](https://github.com/Mr-Abdull
 ### For Developers
 1.  **Clone the repository**
     ```bash
-    git clone [https://github.com/Mr-AbdullahFahim/your-repo-name.git](https://github.com/Mr-AbdullahFahim/DCS-Times.git)
-    cd your-repo-name
+    git clone https://github.com/Mr-AbdullahFahim/DCS-Times.git
+    cd DCS-Times
     ```
 
 2.  **Install dependencies**
